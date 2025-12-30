@@ -4,9 +4,10 @@ import { useCompany } from "../context/CompanyContext";
 interface Props {
   onChangePos: () => void;
   onLoadPoints: () => void;
+  onRedeemCoupon: () => void;
 }
 
-const Home: React.FC<Props> = ({ onChangePos, onLoadPoints }) => {
+const Home: React.FC<Props> = ({ onChangePos, onLoadPoints, onRedeemCoupon }) => {
   const { branches, companyLogo, companyName } = useCompany();
   const posId = localStorage.getItem("pos");
   let posName = "Punto de Venta";
@@ -78,6 +79,28 @@ const Home: React.FC<Props> = ({ onChangePos, onLoadPoints }) => {
               </div>
             </button>
 
+            {/* Canjear cupon */}
+            <button
+              onClick={onRedeemCoupon}
+              className="group w-full rounded-2xl px-5 py-4 sm:py-5 text-left border border-indigo-500/60 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-200 shadow transition-all"
+              aria-label="Canjear cupon"
+            >
+              <div className="flex items-center gap-3">
+                <div className="rounded-xl bg-white/80 dark:bg-gray-900/60 border border-indigo-200 dark:border-indigo-700 p-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="h-6 w-6">
+                    <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6h15A1.5 1.5 0 0 1 21 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 16.5v-9Z" />
+                    <path fillRule="evenodd" d="M8.25 9A.75.75 0 0 1 9 8.25h6a.75.75 0 0 1 0 1.5H9A.75.75 0 0 1 8.25 9Zm0 3a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 0 1.5h-3a.75.75 0 0 1-.75-.75Z" clipRule="evenodd" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-base sm:text-lg font-extrabold">Canjear cupon</p>
+                  <p className="text-xs sm:text-sm text-indigo-900/80 dark:text-indigo-100/90">
+                    Ingresar el codigo del cliente asociado al cupon
+                  </p>
+                </div>
+              </div>
+            </button>
+
             {/* Cambiar punto de venta */}
             {!posId && (
               <button
@@ -145,7 +168,6 @@ const Home: React.FC<Props> = ({ onChangePos, onLoadPoints }) => {
             </button>
 
           </div>
-
           {/* Sugerencia / hint */}
           <div className="mt-6 rounded-2xl border border-dashed border-green-300 dark:border-green-700 bg-green-50/60 dark:bg-green-950/40 px-4 py-3 text-xs sm:text-sm text-gray-700 dark:text-gray-300">
             Consejo: podés alternar modo claro/oscuro desde el botón de configuración del pie de página.

@@ -6,6 +6,7 @@ import PointsStep1 from './pages/PointsStep1';
 import PointsStep2 from './pages/PointsStep2';
 import PointsStepFinal from './pages/PointsStepFinal';
 import PosSelect from './pages/PosSelect';
+import CouponRedeem from './pages/CouponRedeem';
 
 import { Brand, Branch, fetchCurrentUser, fetchBranches } from './api/auth';
 
@@ -16,7 +17,7 @@ import Footer from './components/Footer';
 import { useCompany } from './context/CompanyContext';
 import UpdateNotice from './components/UpdateNotice';
 
-type Screen = 'loading' | 'login1' | 'login2' | 'home' | 'pos' | 'points1' | 'points2' | 'points3';
+type Screen = 'loading' | 'login1' | 'login2' | 'home' | 'pos' | 'points1' | 'points2' | 'points3' | 'coupon';
 
 const App: React.FC = () => {
   const [screen, setScreen] = React.useState<Screen>('loading');
@@ -102,6 +103,7 @@ const App: React.FC = () => {
 
   const handleChangePos = () => setScreen('pos');
   const handleStartPoints = () => setScreen('points1');
+  const handleStartCoupon = () => setScreen('coupon');
 
   const handleSelectPos = (pos: Branch) => {
     localStorage.setItem('pos', String(pos.id));
@@ -124,6 +126,7 @@ const App: React.FC = () => {
   const handleBackPoints2 = () => setScreen('points1');
   const handleBackPoints3 = () => setScreen('points1');
   const handleClosePoints = () => setScreen('home');
+  const handleBackCoupon = () => setScreen('home');
 
   if (screen === 'loading')
     return (
@@ -139,7 +142,13 @@ const App: React.FC = () => {
   else if (screen === 'login2')
     content = <BrandSelect onSelect={handleBrand} onLogout={handleLogout} />;
   else if (screen === 'home')
-    content = <Home onChangePos={handleChangePos} onLoadPoints={handleStartPoints} />;
+    content = (
+      <Home
+        onChangePos={handleChangePos}
+        onLoadPoints={handleStartPoints}
+        onRedeemCoupon={handleStartCoupon}
+      />
+    );
   else if (screen === 'pos')
     content = <PosSelect onSelect={handleSelectPos} onCancel={handleCancelPos} />;
   else if (screen === 'points1')
@@ -154,14 +163,17 @@ const App: React.FC = () => {
       />
     );
   else if (screen === 'points3' && profile)
-    content = (<PointsStepFinal
-      profile={profile}
-      added={added}
-      expires={expires}
-      onBack={handleBackPoints3}
-      onClose={handleClosePoints}
-    />
+    content = (
+      <PointsStepFinal
+        profile={profile}
+        added={added}
+        expires={expires}
+        onBack={handleBackPoints3}
+        onClose={handleClosePoints}
+      />
     );
+  else if (screen === 'coupon')
+    content = <CouponRedeem onBack={handleBackCoupon} />;
 
   const isAuth = screen === 'login1' || screen === 'login2';
 
