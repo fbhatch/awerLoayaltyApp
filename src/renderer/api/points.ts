@@ -22,6 +22,50 @@ export interface PointsConfig {
   pointsActive: boolean;
 }
 
+export interface CouponBranch {
+  type: string;
+  id: number;
+  companyId: number;
+  companyName: string;
+  name: string;
+  address: string;
+  province: string | null;
+  country: string | null;
+}
+
+export interface CouponUsage {
+  used: boolean;
+  dateUsed: string | null;
+  dateCreated: number[];
+  branch: {
+    id: number;
+    name: string;
+  };
+  pointsCost: number;
+}
+
+export interface CouponBox {
+  title: string;
+  description: string;
+  imageUrl: string;
+  dateFrom: number[];
+  dateTo: number[];
+  stock: number;
+  branches: CouponBranch[];
+  active: boolean;
+  legal: string;
+}
+
+export interface CouponData {
+  couponUsage: CouponUsage;
+  couponBox: CouponBox;
+  user: {
+    id: number;
+    email: string;
+  };
+  availableForBranch: boolean;
+}
+
 let currentUser: UserProfile | null = null;
 
 export async function fetchPointsConfig(): Promise<PointsConfig> {
@@ -139,4 +183,20 @@ export async function addPoints(amount: number): Promise<UserProfile> {
   const profile = mapUser(data);
   currentUser = profile;
   return profile;
+}
+
+export async function fetchCouponData(
+  code: string,
+  branchId: number
+): Promise<CouponData> {
+  const { data } = await axiosClient.get<CouponData>(
+    '/awer-core/reward/ext/coupon',
+    {
+      params: {
+        code,
+        branchId,
+      },
+    },
+  );
+  return data;
 }

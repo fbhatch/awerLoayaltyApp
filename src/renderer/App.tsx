@@ -7,17 +7,18 @@ import PointsStep2 from './pages/PointsStep2';
 import PointsStepFinal from './pages/PointsStepFinal';
 import PosSelect from './pages/PosSelect';
 import CouponRedeem from './pages/CouponRedeem';
+import CouponRedeemReview from './pages/CouponRedeemReview';
 
 import { Brand, Branch, fetchCurrentUser, fetchBranches } from './api/auth';
 
-import { UserProfile } from './api/points';
+import { UserProfile, CouponData } from './api/points';
 import Spinner from './components/Spinner';
 import Header from './components/Header';
 import Footer from './components/Footer';
 import { useCompany } from './context/CompanyContext';
 import UpdateNotice from './components/UpdateNotice';
 
-type Screen = 'loading' | 'login1' | 'login2' | 'home' | 'pos' | 'points1' | 'points2' | 'points3' | 'coupon';
+type Screen = 'loading' | 'login1' | 'login2' | 'home' | 'pos' | 'points1' | 'points2' | 'points3' | 'coupon1' | 'coupon2';
 
 const App: React.FC = () => {
   const [screen, setScreen] = React.useState<Screen>('loading');
@@ -32,6 +33,7 @@ const App: React.FC = () => {
       return 'dark';
     }
   });
+  const [couponDetails, setCouponDetails] = React.useState<CouponData | null>(null);
   const { setCompanyId, setCompanyName, setCompanyLogo, setBranches } = useCompany();
 
   React.useEffect(() => {
@@ -103,7 +105,10 @@ const App: React.FC = () => {
 
   const handleChangePos = () => setScreen('pos');
   const handleStartPoints = () => setScreen('points1');
-  const handleStartCoupon = () => setScreen('coupon');
+  const handleStartCoupon = () => {
+    setCouponDetails(null);
+    setScreen('coupon1');
+  };
 
   const handleSelectPos = (pos: Branch) => {
     localStorage.setItem('pos', String(pos.id));
@@ -126,7 +131,18 @@ const App: React.FC = () => {
   const handleBackPoints2 = () => setScreen('points1');
   const handleBackPoints3 = () => setScreen('points1');
   const handleClosePoints = () => setScreen('home');
-  const handleBackCoupon = () => setScreen('home');
+  const handleCouponNext = (coupon: CouponData) => {
+    setCouponDetails(coupon);
+    setScreen('coupon2');
+  };
+  const handleBackCouponStep1 = () => {
+    setCouponDetails(null);
+    setScreen('home');
+  };
+  const handleBackCouponStep2 = () => {
+    setCouponDetails(null);
+    setScreen('coupon1');
+  };
 
   if (screen === 'loading')
     return (
@@ -172,8 +188,16 @@ const App: React.FC = () => {
         onClose={handleClosePoints}
       />
     );
-  else if (screen === 'coupon')
-    content = <CouponRedeem onBack={handleBackCoupon} />;
+  else if (screen === 'coupon1')
+    content = <CouponRedeem onBack={handleBackCouponStep1} onNext={handleCouponNext} />;
+  else if (screen === 'coupon2' && couponDetails)
+    content = (
+      <CouponRedeemReview
+        coupon={couponDetails}
+        onBack={handleBackCouponStep2}
+        onCancel={handleBackCouponStep1}
+      />
+    );
 
   const isAuth = screen === 'login1' || screen === 'login2';
 

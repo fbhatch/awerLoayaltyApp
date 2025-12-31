@@ -1,6 +1,6 @@
 {
   "name": "awerloayaltyapp",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Awer Loyalty Desktop App",
   "main": "dist/main/main.js",
   "scripts": {

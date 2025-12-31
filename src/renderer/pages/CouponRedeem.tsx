@@ -1,15 +1,32 @@
 import React from "react";
+import Spinner from "../components/Spinner";
+import { fetchCouponData, CouponData } from "../api/points";
 
 interface Props {
   onBack: () => void;
+  onNext: (coupon: CouponData) => void;
 }
 
-const CouponRedeem: React.FC<Props> = ({ onBack }) => {
+type MessageType = "error" | "success" | null;
+
+const CouponRedeemStep1: React.FC<Props> = ({ onBack, onNext }) => {
   const [couponCode, setCouponCode] = React.useState("");
   const [message, setMessage] = React.useState<string | null>(null);
-  const [messageType, setMessageType] = React.useState<'error' | 'success' | null>(null);
+  const [messageType, setMessageType] = React.useState<MessageType>(null);
+  const [loading, setLoading] = React.useState(false);
+  const [branchId, setBranchId] = React.useState<number | null>(null);
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    const stored = window.localStorage.getItem("pos");
+    if (!stored) return;
+    const parsed = Number(stored);
+    if (!Number.isNaN(parsed)) {
+      setBranchId(parsed);
+    }
+  }, []);
+
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const normalized = couponCode.trim().toUpperCase();
     setMessage(null);
@@ -17,20 +34,49 @@ const CouponRedeem: React.FC<Props> = ({ onBack }) => {
 
     if (!normalized) {
       setMessage("Ingresa un codigo alfanumerico valido.");
-      setMessageType('error');
+      setMessageType("error");
       return;
     }
 
     if (!/^[A-Z0-9-]+$/.test(normalized)) {
       setMessage("Solo se permiten letras, numeros y guiones medios.");
-      setMessageType('error');
+      setMessageType("error");
+      return;
+    }
+
+    if (branchId === null) {
+      setMessage("Selecciona un punto de venta antes de operar.");
+      setMessageType("error");
       return;
     }
 
     setCouponCode(normalized);
-    setMessage(`Codigo ${normalized} listo para acreditar el cupon.`);
-    setMessageType('success');
+    setLoading(true);
+    try {
+      const data = await fetchCouponData(normalized, branchId);
+      onNext(data);
+    } catch (error: any) {
+      const serverMessage =
+        error?.response?.data?.displayMessage ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "Ocurrio un error al buscar el cupon.";
+      setMessage(serverMessage);
+      setMessageType("error");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  if (loading)
+    return (
+      <div className="min-h-full flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md bg-white dark:bg-gray-900 border border-indigo-200 dark:border-indigo-800 rounded-3xl shadow-2xl p-8 text-center">
+          <Spinner />
+          <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">Buscando cupon...</p>
+        </div>
+      </div>
+    );
 
   return (
     <div className="min-h-full w-full flex items-center justify-center px-3 sm:px-6 py-6">
@@ -84,13 +130,22 @@ const CouponRedeem: React.FC<Props> = ({ onBack }) => {
               type="submit"
               className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-bold uppercase tracking-wide py-3 shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-300"
             >
-              Registrar codigo
+              Consultar cupon
             </button>
           </form>
 
           {message && (
-            <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${messageType === 'success' ? 'border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-900/30 dark:text-green-200' : 'border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200'}`}>
+            <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm font-semibold ${messageType === "success"
+              ? "border-green-300 bg-green-50 text-green-800 dark:border-green-700 dark:bg-green-900/30 dark:text-green-200"
+              : "border-red-300 bg-red-50 text-red-700 dark:border-red-700 dark:bg-red-900/30 dark:text-red-200"
+              }`}>
               {message}
+            </div>
+          )}
+
+          {branchId === null && (
+            <div className="mt-4 rounded-2xl border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 dark:border-yellow-600 dark:bg-yellow-900/30 dark:text-yellow-100">
+              No encontramos un punto de venta seleccionado. Volve al home y elige una sucursal para continuar.
             </div>
           )}
         </div>
@@ -99,4 +154,4 @@ const CouponRedeem: React.FC<Props> = ({ onBack }) => {
   );
 };
 
-export default CouponRedeem;
+export default CouponRedeemStep1;
