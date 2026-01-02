@@ -87,7 +87,7 @@ const PointsStep2: React.FC<Props> = ({ profile, onBack, onNext, onError }) => {
     return (
       <div className="min-h-full flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md bg-white dark:bg-gray-900 border border-green-200 dark:border-gray-700 rounded-3xl shadow-2xl p-8 text-center">
-          <Spinner />
+          <Spinner className="mx-auto" />
           <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">Procesando…</p>
         </div>
       </div>

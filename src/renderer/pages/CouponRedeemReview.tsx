@@ -1,12 +1,15 @@
 import React from "react";
 import Tooltip from "../components/Tooltip";
+import Spinner from "../components/Spinner";
 import userIcon from "../assets/user-default.svg";
-import { CouponData } from "../api/points";
+import { CouponData, fetchCouponUserDetail, ApiUser, redeemCoupon } from "../api/points";
 
 interface Props {
   coupon: CouponData;
+  couponCode: string;
   onBack: () => void;
   onCancel: () => void;
+  onResult: (status: { success: boolean; message?: string }) => void;
 }
 
 type ApiDateValue = number[] | string | null;
@@ -33,9 +36,17 @@ const formatDateTime = (date: Date | null, withTime = true) => {
   return `${base} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
-const CouponRedeemReview: React.FC<Props> = ({ coupon, onBack, onCancel }) => {
+const CouponRedeemReview: React.FC<Props> = ({ coupon, couponCode, onBack, onCancel, onResult }) => {
   const [branchesOpen, setBranchesOpen] = React.useState(false);
   const [branchId, setBranchId] = React.useState<number | null>(null);
+  const [isUserModalOpen, setIsUserModalOpen] = React.useState(false);
+  const [userDetail, setUserDetail] = React.useState<ApiUser | null>(null);
+  const [userDetailLoading, setUserDetailLoading] = React.useState(false);
+  const [userDetailError, setUserDetailError] = React.useState<string | null>(null);
+  const [holdProgress, setHoldProgress] = React.useState(0);
+  const holdStartRef = React.useRef<number | null>(null);
+  const holdAnimationRef = React.useRef<number | null>(null);
+  const [consuming, setConsuming] = React.useState(false);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;
@@ -46,9 +57,33 @@ const CouponRedeemReview: React.FC<Props> = ({ coupon, onBack, onCancel }) => {
       setBranchId(parsed);
     }
   }, []);
+  const closeUserModal = () => {
+    setIsUserModalOpen(false);
+    setUserDetailError(null);
+  };
 
-  const handleConsume = () => {
-    console.log("Consumir cupon (pendiente de implementacion)", coupon);
+  const handleOpenUserModal = async () => {
+    setIsUserModalOpen(true);
+    setUserDetail(null);
+    setUserDetailError(null);
+    setUserDetailLoading(true);
+    if (!coupon.user.dni || !coupon.user.email) {
+      setUserDetailError("No hay datos suficientes del usuario.");
+      setUserDetailLoading(false);
+      return;
+    }
+    try {
+      const detail = await fetchCouponUserDetail(coupon.user.dni, coupon.user.email);
+      setUserDetail(detail);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : "No se pudo obtener la ficha del usuario.";
+      setUserDetailError(message);
+    } finally {
+      setUserDetailLoading(false);
+    }
   };
 
   const now = new Date();
@@ -111,6 +146,125 @@ const CouponRedeemReview: React.FC<Props> = ({ coupon, onBack, onCancel }) => {
   const usageAccent = coupon.couponUsage.used
     ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300"
     : "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300";
+  const userAvatar = coupon.user.avatar || userIcon;
+  const formatNumber = (value?: number | null) =>
+    typeof value === "number" ? value.toLocaleString() : "-";
+  const detailExpireDate = userDetail?.expireDate
+    ? formatDateTime(parseApiDate(userDetail.expireDate), false)
+    : "-";
+  const showProtectedUserData = Boolean(userDetail?.hasPointsPassword && userDetail?.isEmailVerified);
+  const detailAvatar = userDetail?.avatar || userAvatar;
+  const infoCardClass =
+    "rounded-2xl border border-indigo-100/70 dark:border-white/10 bg-white/90 dark:bg-white/5 backdrop-blur-sm p-4";
+  const infoTitleClass =
+    "text-[11px] font-semibold tracking-[0.35em] text-gray-500 dark:text-gray-400 uppercase";
+  const iconWrapperClass =
+    "inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-indigo-50 dark:bg-white/10 text-indigo-600 dark:text-indigo-200";
+
+  const cancelHold = React.useCallback(() => {
+    if (holdAnimationRef.current) {
+      cancelAnimationFrame(holdAnimationRef.current);
+      holdAnimationRef.current = null;
+    }
+    holdStartRef.current = null;
+    if (!consuming) {
+      setHoldProgress(0);
+    }
+  }, [consuming]);
+
+  const triggerRedeem = React.useCallback(async () => {
+    if (consuming) return;
+    cancelHold();
+    if (!branchId) {
+      onResult({ success: false, message: "Selecciona un punto de venta antes de operar." });
+      return;
+    }
+    if (!couponCode) {
+      onResult({ success: false, message: "Codigo de cupon invalido." });
+      return;
+    }
+    setConsuming(true);
+    let result: { success: boolean; message: string } | null = null;
+    try {
+      await redeemCoupon(branchId, couponCode);
+      result = { success: true, message: "Cupon consumido con exito." };
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.displayMessage ||
+        error?.response?.data?.message ||
+        error?.message ||
+        "Ocurrio un error al consumir el cupon.";
+      result = { success: false, message };
+    } finally {
+      setConsuming(false);
+      if (result) {
+        onResult(result);
+      }
+    }
+  }, [branchId, cancelHold, consuming, couponCode, onResult]);
+
+  const startHold = React.useCallback(() => {
+    if (consuming || consumeDisabled) return;
+    cancelHold();
+    holdStartRef.current = performance.now();
+    const step = (timestamp: number) => {
+      if (holdStartRef.current === null) return;
+      const progress = Math.min((timestamp - holdStartRef.current) / 3000, 1);
+      setHoldProgress(progress);
+      if (progress >= 1) {
+        holdStartRef.current = null;
+        holdAnimationRef.current = null;
+        triggerRedeem();
+      } else {
+        holdAnimationRef.current = requestAnimationFrame(step);
+      }
+    };
+    holdAnimationRef.current = requestAnimationFrame(step);
+  }, [cancelHold, consumeDisabled, consuming, triggerRedeem]);
+
+  React.useEffect(() => {
+    return () => {
+      if (holdAnimationRef.current) {
+        cancelAnimationFrame(holdAnimationRef.current);
+      }
+    };
+  }, []);
+
+  React.useEffect(() => {
+    if (consumeDisabled) {
+      cancelHold();
+    }
+  }, [consumeDisabled, cancelHold]);
+
+  if (consuming)
+    return (
+      <div className="min-h-full flex items-center justify-center px-4 py-10">
+        <div className="w-full max-w-md bg-white dark:bg-gray-900 border border-indigo-200 dark:border-indigo-800 rounded-3xl shadow-2xl p-8 text-center">
+          <Spinner className="mx-auto" />
+          <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">Confirmando canje…</p>
+        </div>
+      </div>
+    );
+
+  const holdHandlers: Partial<React.DOMAttributes<HTMLButtonElement>> = consumeDisabled
+    ? {}
+    : {
+      onPointerDown: startHold,
+      onPointerUp: cancelHold,
+      onPointerLeave: cancelHold,
+      onPointerCancel: cancelHold,
+    };
+  const progressPercent = Math.min(Math.round(holdProgress * 100), 100);
+  const buttonFillStyle = consumeDisabled
+    ? undefined
+    : {
+      backgroundImage:
+        holdProgress > 0
+          ? `linear-gradient(90deg, rgba(250,204,21,0.9) ${progressPercent}%, rgba(4,47,36,0.35) ${progressPercent}%), linear-gradient(90deg, #047857, #10b981)`
+          : undefined,
+      boxShadow: holdProgress > 0 ? "0 0 18px rgba(16, 185, 129, 0.45)" : undefined,
+      transition: "background-image 80ms linear",
+    };
 
   return (
     <div className="min-h-full w-full flex items-center justify-center px-3 sm:px-6 py-6">
@@ -298,8 +452,17 @@ const CouponRedeemReview: React.FC<Props> = ({ coupon, onBack, onCancel }) => {
 
           <div className="mt-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-3xl shadow-sm p-4 sm:p-6">
             <div className="flex flex-col sm:flex-row gap-4 items-center sm:items-start">
-              <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-indigo-200 via-purple-200 to-violet-200 dark:from-indigo-800 dark:via-purple-800 dark:to-violet-900 border-2 border-indigo-400 dark:border-indigo-600 shadow-inner flex items-center justify-center">
-                <img src={userIcon} alt="Usuario" className="w-10 h-10 opacity-80" />
+              <div className="relative w-20 h-20 rounded-full bg-gradient-to-br from-indigo-200 via-purple-200 to-violet-200 dark:from-indigo-800 dark:via-purple-800 dark:to-violet-900 border-2 border-indigo-400 dark:border-indigo-600 shadow-inner flex items-center justify-center overflow-hidden">
+                <img
+                  src={userAvatar}
+                  onError={(event) => {
+                    if (event.currentTarget.src !== userIcon) {
+                      event.currentTarget.src = userIcon;
+                    }
+                  }}
+                  alt={coupon.user.email}
+                  className={`w-full h-full object-cover ${coupon.user.avatar ? '' : 'opacity-80'}`}
+                />
                 <div className="absolute inset-0 rounded-full ring-2 ring-white/40 dark:ring-black/30 pointer-events-none" />
               </div>
               <div className="flex-1 w-full">
@@ -313,6 +476,7 @@ const CouponRedeemReview: React.FC<Props> = ({ coupon, onBack, onCancel }) => {
               </div>
               <button
                 type="button"
+                onClick={handleOpenUserModal}
                 className="w-full sm:w-auto rounded-full border border-gray-300 dark:border-gray-600 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition"
               >
                 Ver ficha del usuario
@@ -389,26 +553,219 @@ const CouponRedeemReview: React.FC<Props> = ({ coupon, onBack, onCancel }) => {
             </button>
             {consumeDisabled && disableMessage ? (
               <Tooltip message={disableMessage}>
-                <button
-                  type="button"
-                  disabled
-                  className="w-full sm:w-auto rounded-full px-6 py-3 font-extrabold text-white bg-green-500 cursor-not-allowed opacity-70"
-                >
-                  Consumir
-                </button>
+                <div className="w-full sm:w-auto">
+                  <button
+                    type="button"
+                    className="relative w-full sm:w-auto rounded-full px-6 py-3 font-extrabold text-white bg-green-600/50 cursor-not-allowed overflow-hidden"
+                    disabled
+                  >
+                    Mantener para consumir
+                  </button>
+                </div>
               </Tooltip>
             ) : (
               <button
                 type="button"
-                onClick={handleConsume}
-                className="w-full sm:w-auto rounded-full px-6 py-3 font-extrabold text-white bg-green-600 hover:bg-green-500 shadow-lg transition"
+                className="relative w-full sm:w-auto rounded-full px-6 py-3 font-extrabold text-white bg-gradient-to-r from-green-700 to-emerald-600 shadow-lg overflow-hidden transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+                style={buttonFillStyle}
+                {...holdHandlers}
               >
-                Consumir
+                Mantener para consumir
               </button>
             )}
           </div>
+          <p className="mt-2 text-xs text-right text-gray-500 dark:text-gray-400">
+            Mantené presionado el botón durante 3 segundos para confirmar el consumo.
+          </p>
         </div>
       </div>
+      {isUserModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3 sm:px-6"
+          role="dialog"
+          aria-modal="true"
+          onClick={closeUserModal}
+        >
+          <div
+            className="relative w-full max-w-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="absolute -inset-1 bg-gradient-to-r from-indigo-500/35 via-purple-500/35 to-sky-500/35 blur-3xl opacity-70 dark:opacity-80 pointer-events-none" />
+            <div className="relative overflow-hidden rounded-[26px] border border-indigo-200/70 dark:border-white/15 bg-white/95 dark:bg-[#050b17]/95 shadow-[0_25px_80px_rgba(8,10,40,0.55)] max-h-[88vh]">
+              <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-indigo-300/60 via-purple-500/40 to-sky-500/50 blur-3xl opacity-60 pointer-events-none" />
+              <button
+                type="button"
+                onClick={closeUserModal}
+                className="absolute top-4 right-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/80 dark:bg-white/15 text-gray-700 dark:text-gray-200 hover:bg-white dark:hover:bg-white/25 transition shadow z-10"
+                aria-label="Cerrar ficha del usuario"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={2} stroke="currentColor" className="h-4 w-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <div className="relative p-5 sm:p-7 pt-9 sm:pt-10 overflow-y-auto max-h-[88vh] pr-3 sm:pr-6 brand-scroll">
+                <div className="mb-6 text-center sm:text-left">
+                  <p className="text-[11px] font-semibold tracking-[0.6em] text-indigo-500 dark:text-indigo-300 uppercase">Ficha del usuario</p>
+                  <h2 className="mt-3 text-2xl font-black text-gray-900 dark:text-white">Detalle del cliente</h2>
+                </div>
+                {userDetailLoading ? (
+                  <div className="py-10 text-center text-gray-600 dark:text-gray-300">
+                    <Spinner className="mx-auto" />
+                    <p className="mt-4 text-sm">Cargando datos del usuario…</p>
+                  </div>
+                ) : userDetailError ? (
+                  <div className="py-6 text-center text-sm text-red-600 dark:text-red-400">
+                    {userDetailError}
+                  </div>
+                ) : userDetail ? (
+                  <>
+                    <div className="flex flex-col sm:flex-row gap-4 sm:gap-5 items-center sm:items-center">
+                      <div className="relative">
+                        <div className="h-24 w-24 rounded-[22px] overflow-hidden border-4 border-white/90 dark:border-white/10 shadow-[0_15px_35px_rgba(15,23,42,0.35)]">
+                          <img
+                            src={detailAvatar}
+                            alt={userDetail.email}
+                            onError={(event) => {
+                              if (event.currentTarget.src !== userIcon) {
+                                event.currentTarget.src = userIcon;
+                              }
+                            }}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="absolute inset-0 rounded-[22px] ring-4 ring-white/40 dark:ring-white/10 pointer-events-none" />
+                      </div>
+                      <div className="flex-1 text-center sm:text-left space-y-1">
+                        <p className="text-xl font-black text-gray-900 dark:text-white">
+                          {`${userDetail.name ?? ""} ${userDetail.surname ?? ""}`.trim() || "Sin nombre"}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300 break-all">{userDetail.email}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">DNI: {userDetail.dni ?? "-"}</p>
+                        <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 rounded-full border border-indigo-200/70 dark:border-indigo-500/60 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-100 text-xs font-bold tracking-wide">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className="h-4 w-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
+                          </svg>
+                          Nivel actual: {userDetail.userLevel || "-"}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className={`${infoCardClass} flex items-start gap-3`}>
+                        <span className={iconWrapperClass}>
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 6.75l7.5 4.5 7.5-4.5" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 6.75v10.5a1.5 1.5 0 0 1-1.5 1.5h-12a1.5 1.5 0 0 1-1.5-1.5V6.75" />
+                          </svg>
+                        </span>
+                        <div>
+                          <p className={infoTitleClass}>Correo verificado</p>
+                          <p className={`mt-2 text-base font-bold ${userDetail.isEmailVerified ? "text-emerald-600 dark:text-emerald-300" : "text-red-600 dark:text-red-400"}`}>
+                            {userDetail.isEmailVerified ? "Sí" : "No"}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Necesario para validar canjes.</p>
+                        </div>
+                      </div>
+                      <div className={`${infoCardClass} flex items-start gap-3`}>
+                        <span className={iconWrapperClass}>
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 11v4" />
+                            <rect width="12" height="9" x="6" y="11" rx="2" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 11V9a4 4 0 1 1 8 0v2" />
+                          </svg>
+                        </span>
+                        <div>
+                          <p className={infoTitleClass}>Contraseña de puntos</p>
+                          <p className={`mt-2 text-base font-bold ${userDetail.hasPointsPassword ? "text-emerald-600 dark:text-emerald-300" : "text-red-600 dark:text-red-400"}`}>
+                            {userDetail.hasPointsPassword ? "Configurada" : "No configurada"}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Protege las operaciones del cliente.</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {showProtectedUserData ? (
+                      <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className={`${infoCardClass} flex items-start gap-3`}>
+                          <span className={iconWrapperClass}>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M8 12l2 2 6-6" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v3m0 12v3m9-9h-3M6 12H3" />
+                            </svg>
+                          </span>
+                          <div>
+                            <p className={infoTitleClass}>Próximo nivel</p>
+                            <p className="mt-2 text-lg font-black text-gray-900 dark:text-white">{userDetail.nextLevel || "-"}</p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Faltan {formatNumber(userDetail.pointsToNextLevel)} pts</p>
+                          </div>
+                        </div>
+                        <div className={`${infoCardClass} flex items-start gap-3`}>
+                          <span className={iconWrapperClass}>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75v10.5m3.75-7.5-7.5 4.5" />
+                              <circle cx="12" cy="12" r="9" />
+                            </svg>
+                          </span>
+                          <div>
+                            <p className={infoTitleClass}>Puntos disponibles</p>
+                            <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">
+                              {formatNumber(userDetail.availablePoints)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`${infoCardClass} flex items-start gap-3`}>
+                          <span className={iconWrapperClass}>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l3 3" />
+                              <circle cx="12" cy="12" r="9" />
+                            </svg>
+                          </span>
+                          <div>
+                            <p className={infoTitleClass}>Puntos por vencer</p>
+                            <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">
+                              {formatNumber(userDetail.pointsToExpire)}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400">Vencen el {detailExpireDate}</p>
+                          </div>
+                        </div>
+                        <div className={`${infoCardClass} flex items-start gap-3`}>
+                          <span className={iconWrapperClass}>
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 16h6" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 8h6" />
+                            </svg>
+                          </span>
+                          <div>
+                            <p className={infoTitleClass}>Total canjeado</p>
+                            <p className="mt-2 text-2xl font-black text-gray-900 dark:text-white">
+                              {formatNumber(userDetail.totalRedeemedPoints)} pts
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-5 rounded-2xl border border-dashed border-amber-200 dark:border-amber-500 bg-amber-50/90 dark:bg-amber-900/25 px-4 py-4 text-sm text-amber-800 dark:text-amber-100 text-center flex items-center gap-3">
+                        <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-800/50 text-amber-700 dark:text-amber-100 flex-shrink-0">
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
+                            <circle cx="12" cy="12" r="9" />
+                          </svg>
+                        </span>
+                        Para acceder al detalle de puntos, el cliente necesita correo verificado y contraseña de puntos configurada.
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="py-6 text-center text-sm text-gray-600 dark:text-gray-300">
+                    Selecciona un usuario para ver su detalle.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

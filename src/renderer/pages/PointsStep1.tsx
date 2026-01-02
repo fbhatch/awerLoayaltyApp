@@ -82,7 +82,7 @@ const PointsStep1: React.FC<Props> = ({ onBack, onNext }) => {
     return (
       <div className="min-h-full flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md bg-white dark:bg-gray-900 border border-green-200 dark:border-gray-700 rounded-3xl shadow-2xl p-8 text-center">
-          <Spinner />
+          <Spinner className="mx-auto" />
           <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">Buscando usuario…</p>
         </div>
       </div>
@@ -92,7 +92,7 @@ const PointsStep1: React.FC<Props> = ({ onBack, onNext }) => {
     return (
       <div className="min-h-full flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md bg-white dark:bg-gray-900 border border-green-200 dark:border-gray-700 rounded-3xl shadow-2xl p-8 text-center">
-          <Spinner />
+          <Spinner className="mx-auto" />
           <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">Procesando…</p>
         </div>
       </div>

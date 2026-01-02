@@ -8,6 +8,7 @@ import PointsStepFinal from './pages/PointsStepFinal';
 import PosSelect from './pages/PosSelect';
 import CouponRedeem from './pages/CouponRedeem';
 import CouponRedeemReview from './pages/CouponRedeemReview';
+import CouponRedeemResult from './pages/CouponRedeemResult';
 
 import { Brand, Branch, fetchCurrentUser, fetchBranches } from './api/auth';
 
@@ -18,13 +19,15 @@ import Footer from './components/Footer';
 import { useCompany } from './context/CompanyContext';
 import UpdateNotice from './components/UpdateNotice';
 
-type Screen = 'loading' | 'login1' | 'login2' | 'home' | 'pos' | 'points1' | 'points2' | 'points3' | 'coupon1' | 'coupon2';
+type Screen = 'loading' | 'login1' | 'login2' | 'home' | 'pos' | 'points1' | 'points2' | 'points3' | 'coupon1' | 'coupon2' | 'coupon3';
 
 const App: React.FC = () => {
   const [screen, setScreen] = React.useState<Screen>('loading');
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
   const [added, setAdded] = React.useState(0);
   const [expires, setExpires] = React.useState('');
+  const [couponCode, setCouponCode] = React.useState('');
+  const [couponRedeemStatus, setCouponRedeemStatus] = React.useState<{ success: boolean; message?: string } | null>(null);
   const [theme, setTheme] = React.useState<'light' | 'dark'>(() => {
     try {
       const stored = localStorage.getItem('theme') as 'light' | 'dark' | null;
@@ -107,6 +110,8 @@ const App: React.FC = () => {
   const handleStartPoints = () => setScreen('points1');
   const handleStartCoupon = () => {
     setCouponDetails(null);
+    setCouponRedeemStatus(null);
+    setCouponCode('');
     setScreen('coupon1');
   };
 
@@ -131,16 +136,22 @@ const App: React.FC = () => {
   const handleBackPoints2 = () => setScreen('points1');
   const handleBackPoints3 = () => setScreen('points1');
   const handleClosePoints = () => setScreen('home');
-  const handleCouponNext = (coupon: CouponData) => {
+  const handleCouponNext = (coupon: CouponData, code: string) => {
     setCouponDetails(coupon);
+    setCouponCode(code);
+    setCouponRedeemStatus(null);
     setScreen('coupon2');
   };
   const handleBackCouponStep1 = () => {
     setCouponDetails(null);
+    setCouponRedeemStatus(null);
+    setCouponCode('');
     setScreen('home');
   };
   const handleBackCouponStep2 = () => {
     setCouponDetails(null);
+    setCouponRedeemStatus(null);
+    setCouponCode('');
     setScreen('coupon1');
   };
 
@@ -194,8 +205,22 @@ const App: React.FC = () => {
     content = (
       <CouponRedeemReview
         coupon={couponDetails}
+        couponCode={couponCode}
         onBack={handleBackCouponStep2}
         onCancel={handleBackCouponStep1}
+        onResult={(status) => {
+          setCouponRedeemStatus(status);
+          setScreen('coupon3');
+        }}
+      />
+    );
+  else if (screen === 'coupon3' && couponDetails && couponRedeemStatus)
+    content = (
+      <CouponRedeemResult
+        coupon={couponDetails}
+        success={couponRedeemStatus.success}
+        message={couponRedeemStatus.message}
+        onGoHome={handleBackCouponStep1}
       />
     );
 

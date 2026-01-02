@@ -4,7 +4,7 @@ import { fetchCouponData, CouponData } from "../api/points";
 
 interface Props {
   onBack: () => void;
-  onNext: (coupon: CouponData) => void;
+  onNext: (coupon: CouponData, code: string) => void;
 }
 
 type MessageType = "error" | "success" | null;
@@ -54,7 +54,7 @@ const CouponRedeemStep1: React.FC<Props> = ({ onBack, onNext }) => {
     setLoading(true);
     try {
       const data = await fetchCouponData(normalized, branchId);
-      onNext(data);
+      onNext(data, normalized);
     } catch (error: any) {
       const serverMessage =
         error?.response?.data?.displayMessage ||
@@ -72,7 +72,7 @@ const CouponRedeemStep1: React.FC<Props> = ({ onBack, onNext }) => {
     return (
       <div className="min-h-full flex items-center justify-center px-4 py-10">
         <div className="w-full max-w-md bg-white dark:bg-gray-900 border border-indigo-200 dark:border-indigo-800 rounded-3xl shadow-2xl p-8 text-center">
-          <Spinner />
+          <Spinner className="mx-auto" />
           <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">Buscando cupon...</p>
         </div>
       </div>

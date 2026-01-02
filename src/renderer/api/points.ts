@@ -37,6 +37,7 @@ export interface CouponUsage {
   used: boolean;
   dateUsed: string | null;
   dateCreated: number[];
+  code?: string;
   branch: {
     id: number;
     name: string;
@@ -56,13 +57,17 @@ export interface CouponBox {
   legal: string;
 }
 
+export interface CouponUser {
+  id: number;
+  email: string;
+  dni: string;
+  avatar?: string | null;
+}
+
 export interface CouponData {
   couponUsage: CouponUsage;
   couponBox: CouponBox;
-  user: {
-    id: number;
-    email: string;
-  };
+  user: CouponUser;
   availableForBranch: boolean;
 }
 
@@ -83,7 +88,7 @@ export async function fetchPointsConfig(): Promise<PointsConfig> {
   };
 }
 
-interface ApiUser {
+export interface ApiUser {
   name: string;
   surname: string;
   dni: string | null;
@@ -97,6 +102,8 @@ interface ApiUser {
   pointsToExpire?: number | null;
   expireDate?: [number, number, number] | null;
   totalRedeemedPoints?: number;
+  isEmailVerified?: boolean;
+  hasPointsPassword?: boolean;
 }
 
 function mapUser(u: ApiUser): UserProfile {
@@ -156,6 +163,25 @@ export async function fetchUserByDniEmail(
   return profile;
 }
 
+export async function fetchCouponUserDetail(
+  dni: string,
+  email: string
+): Promise<ApiUser> {
+  const { data } = await axiosClient.get<ApiUser[]>(
+    '/awer-core/reward/ext/user',
+    {
+      params: {
+        dni,
+        email,
+        points: false,
+      },
+    },
+  );
+  const user = data[0];
+  if (!user) throw new Error('Usuario no registrado en el programa de puntos');
+  return user;
+}
+
 export async function addPoints(amount: number): Promise<UserProfile> {
   if (!currentUser) {
     throw new Error('Usuario no cargado');
@@ -200,3 +226,14 @@ export async function fetchCouponData(
   );
   return data;
 }
+
+export async function redeemCoupon(
+  branchId: number,
+  couponCode: string
+): Promise<void> {
+  const normalized = couponCode.toLowerCase();
+  await axiosClient.get(
+    `/awer-core/branches/${branchId}/coupons/${encodeURIComponent(normalized)}`,
+  );
+}
+
