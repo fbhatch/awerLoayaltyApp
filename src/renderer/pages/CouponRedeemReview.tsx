@@ -14,6 +14,8 @@ interface Props {
 
 type ApiDateValue = number[] | string | null;
 
+const HOLD_DURATION_MS = 2000;
+
 const parseApiDate = (value: ApiDateValue): Date | null => {
   if (!value) return null;
   if (Array.isArray(value) && value.length >= 3) {
@@ -209,7 +211,7 @@ const CouponRedeemReview: React.FC<Props> = ({ coupon, couponCode, onBack, onCan
     holdStartRef.current = performance.now();
     const step = (timestamp: number) => {
       if (holdStartRef.current === null) return;
-      const progress = Math.min((timestamp - holdStartRef.current) / 3000, 1);
+      const progress = Math.min((timestamp - holdStartRef.current) / HOLD_DURATION_MS, 1);
       setHoldProgress(progress);
       if (progress >= 1) {
         holdStartRef.current = null;
@@ -575,7 +577,7 @@ const CouponRedeemReview: React.FC<Props> = ({ coupon, couponCode, onBack, onCan
             )}
           </div>
           <p className="mt-2 text-xs text-right text-gray-500 dark:text-gray-400">
-            Mantené presionado el botón durante 3 segundos para confirmar el consumo.
+            Mantené presionado el botón durante 2 segundos para confirmar el consumo.
           </p>
         </div>
       </div>

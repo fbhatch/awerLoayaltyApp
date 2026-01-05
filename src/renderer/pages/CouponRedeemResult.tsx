@@ -57,8 +57,7 @@ const CouponRedeemResult: React.FC<Props> = ({ coupon, success, message, onGoHom
             <p className="text-sm text-white/80 text-center">{status.subtitle}</p>
           </div>
         </div>
-
-        <div className="px-5 sm:px-10 pt-28 pb-8">
+        <div className="px-5 sm:px-10 pt-8 sm:pt-10 pb-8">
           <div className="flex flex-col sm:flex-row items-center gap-5">
             <div className="relative w-28 h-28 rounded-3xl border border-indigo-100 dark:border-indigo-800 overflow-hidden shadow-lg bg-white dark:bg-gray-900">
               {coupon.couponBox.imageUrl ? (
@@ -87,7 +86,11 @@ const CouponRedeemResult: React.FC<Props> = ({ coupon, success, message, onGoHom
             <div className="rounded-2xl border border-gray-200 dark:border-gray-700 p-4 flex items-start gap-3 bg-gray-50 dark:bg-gray-800/40">
               <span className={`h-10 w-10 rounded-2xl flex items-center justify-center ${status.iconBg}`}>
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" strokeWidth={1.8} stroke="currentColor" className="h-5 w-5">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
+                  {success ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  )}
                 </svg>
               </span>
               <div>
