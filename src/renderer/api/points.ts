@@ -13,6 +13,11 @@ export interface UserProfile {
   totalRedeemed?: number;
   expiringPoints?: number;
   expiringDate?: string;
+  availablePoints?: number;
+  isEmailVerified?: boolean;
+  hasPointsPassword?: boolean;
+  pointsToExpire?: number | null;
+  expireDate?: [number, number, number] | null;
 }
 
 export interface PointsConfig {
@@ -133,13 +138,18 @@ function mapUser(u: ApiUser): UserProfile {
     totalRedeemed: u.totalRedeemedPoints ? u.totalRedeemedPoints : 0,
     expiringPoints,
     expiringDate,
+    availablePoints: u.availablePoints ?? undefined,
+    isEmailVerified: u.isEmailVerified ?? false,
+    hasPointsPassword: u.hasPointsPassword ?? false,
+    pointsToExpire: typeof u.pointsToExpire === 'number' ? u.pointsToExpire : null,
+    expireDate: u.expireDate ?? null,
   };
 }
 
-export async function fetchUsersByDni(dni: string): Promise<UserProfile[]> {
+export async function fetchUsersByDni(dni: string, points = true): Promise<UserProfile[]> {
   const { data } = await axiosClient.get<ApiUser[]>(
     '/awer-core/reward/ext/user',
-    { params: { dni } }
+    { params: { dni, points } }
   );
   const profiles = data.map(mapUser);
   if (profiles.length === 1) {
@@ -148,13 +158,26 @@ export async function fetchUsersByDni(dni: string): Promise<UserProfile[]> {
   return profiles;
 }
 
+export async function fetchUserByEmail(email: string, points = true): Promise<UserProfile> {
+  const { data } = await axiosClient.get<ApiUser[]>(
+    '/awer-core/reward/ext/user',
+    { params: { email, points } }
+  );
+  const user = data[0];
+  if (!user) throw new Error('Usuario no registrado en el programa de puntos');
+  const profile = mapUser(user);
+  currentUser = profile;
+  return profile;
+}
+
 export async function fetchUserByDniEmail(
   dni: string,
-  email: string
+  email: string,
+  points = true,
 ): Promise<UserProfile> {
   const { data } = await axiosClient.get<ApiUser[]>(
     '/awer-core/reward/ext/user',
-    { params: { dni, email } }
+    { params: { dni, email, points } }
   );
   const user = data[0];
   if (!user) throw new Error('Usuario no registrado en el programa de puntos');

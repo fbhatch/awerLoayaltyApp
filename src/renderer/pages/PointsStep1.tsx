@@ -126,7 +126,7 @@ const PointsStep1: React.FC<Props> = ({ onBack, onNext }) => {
         <div className="px-5 sm:px-8 pt-14 pb-6">
           <div className="text-center mb-6">
             <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white">Cargar datos del usuario</h1>
-            <p className="mt-1 text-sm sm:text-base text-gray-600 dark:text-gray-300">Ingresá el DNI del cliente para continuar</p>
+            <p className="mt-1 text-sm sm:text-base text-gray-600 dark:text-gray-300">Ingresá el DNI del cliente (sin puntos) para continuar</p>
           </div>
 
           {configInvalid && (
@@ -151,7 +151,7 @@ const PointsStep1: React.FC<Props> = ({ onBack, onNext }) => {
               inputMode="numeric"
               pattern="[0-9]*"
               autoComplete="off"
-              placeholder="DNI del cliente"
+              placeholder="DNI del cliente (sin puntos)"
               value={dni}
               onChange={(e) => {
                 const onlyDigits = e.target.value.replace(/\D+/g, "");
