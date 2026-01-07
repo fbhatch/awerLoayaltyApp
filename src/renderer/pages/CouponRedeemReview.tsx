@@ -323,6 +323,10 @@ const CouponRedeemReview: React.FC<Props> = ({ coupon, couponCode, onBack, onCan
                       <span className="h-2 w-2 rounded-full bg-current" />
                       {validityPill.text}
                     </span>
+                    <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${userStatusPill.className}`}>
+                      <span className="h-2 w-2 rounded-full bg-current" />
+                      {userStatusPill.text}
+                    </span>
                     <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold border ${availabilityPill.className}`}>
                       <span className="h-2 w-2 rounded-full bg-current" />
                       {availabilityPill.text}
